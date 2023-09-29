@@ -1,12 +1,5 @@
-import {
-  Deferred,
-  deferred,
-} from "https://deno.land/std@0.203.0/async/deferred.ts";
-import {
-  join,
-  normalize,
-  resolve,
-} from "https://deno.land/std@0.203.0/path/mod.ts";
+import { Deferred, deferred } from "https://deno.land/std@0.203.0/async/deferred.ts";
+import { join, normalize, resolve } from "https://deno.land/std@0.203.0/path/mod.ts";
 import { open } from "https://deno.land/x/open@v0.0.6/index.ts";
 import chokidar from "npm:chokidar";
 import dialog from "npm:dialog";
@@ -132,7 +125,9 @@ const methods = {
       "MKCOL",
       "DELETE",
       "SUBSCRIBE",
-    ].concat(args["open-in-editor"] ? ["EDITOR"] : []).join(",");
+    ]
+      .concat(args["open-in-editor"] ? ["EDITOR"] : [])
+      .join(",");
 
     return new Response(null, {
       status: 200,
@@ -224,7 +219,7 @@ const methods = {
       return new Response(null, {
         status: 302,
         headers: {
-          "Location": `dav://${request.headers.get("host")}${url.pathname}`,
+          Location: `dav://${request.headers.get("host")}${url.pathname}`,
         },
       });
     } catch (error) {
@@ -400,14 +395,15 @@ function assureWatcher(relativePath: string) {
   }
 
   const fpath = join(working_dir, relativePath);
-  let cache: typeof watcherCache[""];
+  let cache: (typeof watcherCache)[""];
   const watcher = chokidar.watch(fpath, {
     ignored: /^\./,
     atomic: true,
     ignoreInitial: true,
   });
 
-  watcher.on("add", onChangeWithGuard)
+  watcher
+    .on("add", onChangeWithGuard)
     .on("change", onChangeWithGuard)
     .on("unlink", onChangeWithGuard)
     .on("error", () => {
@@ -427,7 +423,7 @@ function assureWatcher(relativePath: string) {
   async function onChange(rawPath: string) {
     const path = normalize(rawPath);
     const filename = path.replace(
-      new RegExp("^" + regexEscape(fpath) + "\/?"),
+      new RegExp("^" + regexEscape(fpath) + "/?"),
       "",
     );
     if (args["meta-touch"]) {
@@ -448,7 +444,7 @@ function assureWatcher(relativePath: string) {
         current_cursor: 1,
       };
     }
-    const changes = cache.changes[cache.current_cursor] ??= {};
+    const changes = (cache.changes[cache.current_cursor] ??= {});
     changes[filename] ||= true;
     if (cache.timeout) {
       clearTimeout(cache.timeout);
@@ -463,14 +459,17 @@ function assureWatcher(relativePath: string) {
   }
 }
 
-Deno.serve({
-  hostname: args.host as string || "localhost",
-  port: port as number,
-  onError: (error) => {
-    console.error(error);
-    return new Response(`${error}`);
+Deno.serve(
+  {
+    hostname: (args.host as string) || "localhost",
+    port: port as number,
+    onError: (error) => {
+      console.error(error);
+      return new Response(`${error}`);
+    },
   },
-}, logAndHandleRequest);
+  logAndHandleRequest,
+);
 console.log(`server is listening on ${port}`);
 
 async function logAndHandleRequest(request: Request): Promise<Response> {
@@ -580,7 +579,9 @@ async function arrayToXml(
   const xmls = await Promise.all(files.map(buildItemXml));
   const new_cursor = cursor ? `<td:cursor>${cursor}</td:cursor>` : "";
   return `<?xml version="1.0"?><d:multistatus xmlns:d="DAV:" xmlns:td="http://dav.tampermonkey.net/ns">${
-    xmls.join("\n")
+    xmls.join(
+      "\n",
+    )
   }${new_cursor}</d:multistatus>`;
 
   async function buildItemXml(file: string) {
@@ -609,18 +610,16 @@ async function arrayToXml(
       "<d:propstat>",
       "<d:prop>",
       `<d:getlastmodified>${lastModified}</d:getlastmodified>`,
-      dir
-        ? "<d:resourcetype><d:collection/></d:resourcetype>"
-        : "<d:resourcetype />",
-      !dir
-        ? `<d:getcontentlength>${size}</d:getcontentlength>`
-        : "<d:getcontentlength />",
+      dir ? "<d:resourcetype><d:collection/></d:resourcetype>" : "<d:resourcetype />",
+      !dir ? `<d:getcontentlength>${size}</d:getcontentlength>` : "<d:getcontentlength />",
       "</d:prop>",
       "<d:status>HTTP/1.1 200 OK</d:status>",
       "</d:propstat>",
       "</d:response>",
-    ].filter(function (e) {
-      return e;
-    }).join("\n");
+    ]
+      .filter(function (e) {
+        return e;
+      })
+      .join("\n");
   }
 }

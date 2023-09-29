@@ -1,0 +1,7 @@
+{
+  "fmt": {
+    "lineWidth": 100
+  },
+  "lock": false,
+  "exclude": ["dav"]
+}
