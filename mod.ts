@@ -1,5 +1,5 @@
 import { Deferred, deferred } from "https://deno.land/std@0.203.0/async/deferred.ts";
-import { join, normalize, resolve } from "https://deno.land/std@0.203.0/path/mod.ts";
+import { join, normalize, resolve } from "https://deno.land/std@0.203.0/path/posix.ts";
 import { open } from "https://deno.land/x/open@v0.0.6/index.ts";
 import chokidar from "npm:chokidar";
 import dialog from "npm:dialog";
