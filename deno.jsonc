@@ -3,5 +3,5 @@
     "lineWidth": 100
   },
   "lock": false,
-  "exclude": ["dav"]
+  "exclude": ["dav", "test/data"]
 }
