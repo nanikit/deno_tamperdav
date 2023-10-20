@@ -1,10 +1,14 @@
 import { arrayToXml } from "./array_to_xml.ts";
-import { chokidar, Deferred, deferred, join, normalize, open, resolve } from "./deps.ts";
+import { deferred, join, open, resolve } from "./deps.ts";
+import {
+  assureWatcher,
+  sendCachedWatcherChanges,
+  subscribers,
+  watcherCache,
+} from "./watcher_cache.ts";
 
 let args = {} as Record<string, unknown>;
 let working_dir = "";
-
-const subscribers = {} as Record<string, Record<string, Deferred<Response>>>;
 
 const methods = {
   options: (_request: Request) => {
@@ -200,13 +204,17 @@ const methods = {
     });
     (subscribers[relativePath] ??= {})[id] = response;
 
-    assureWatcher(relativePath);
+    assureWatcher({ root: working_dir, relativePath, metaTouch: !!args["meta-touch"] });
 
     const uri = new URL(request.url);
     const url_args = getUrlArgs(uri.search || "");
     let from_cursor;
     if ((from_cursor = url_args.cursor || request.headers.get("cursor"))) {
-      sendCachedWatcherChanges(relativePath, parseInt(from_cursor, 10));
+      sendCachedWatcherChanges({
+        root: working_dir,
+        relativePath,
+        fromCursor: parseInt(from_cursor, 10),
+      });
     }
 
     return response;
@@ -231,119 +239,6 @@ function getUrlArgs(url: string) {
   }
 
   return c;
-}
-
-async function notifySubscribers(
-  relativePath: string,
-  changedFiles: string[],
-  cursor?: number,
-) {
-  const subscriber = subscribers[relativePath];
-  if (!subscriber) {
-    return;
-  }
-
-  subscribers[relativePath] = {};
-  const xml = await arrayToXml({ root: working_dir, relativePath, files: changedFiles, cursor });
-
-  for (const [id, response] of Object.entries(subscriber)) {
-    response.resolve(
-      new Response(xml, {
-        status: 207,
-        headers: { "Content-Type": "application/xml; charset=utf-8" },
-      }),
-    );
-    delete subscriber[id];
-  }
-}
-
-const watcherCache = {} as Record<
-  string,
-  {
-    changes: Record<string, boolean>[];
-    timeout?: number | null;
-    current_cursor: number;
-  }
->;
-
-function sendCachedWatcherChanges(relativePath: string, from_cursor: number) {
-  const changes = watcherCache[relativePath];
-  if (!changes) {
-    return;
-  }
-
-  for (let i = from_cursor; i <= changes.current_cursor; i++) {
-    const current = changes.changes[i];
-    if (current) {
-      notifySubscribers(relativePath, Object.keys(current), i + 1);
-    }
-  }
-}
-
-const watchers = {} as Record<string, chokidar.FSWatcher>;
-function assureWatcher(relativePath: string) {
-  if (watchers[relativePath]) {
-    return;
-  }
-
-  const fpath = join(working_dir, relativePath);
-  let cache: (typeof watcherCache)[""];
-  const watcher = chokidar.watch(fpath, {
-    ignored: /^\./,
-    atomic: true,
-    ignoreInitial: true,
-  });
-
-  watcher
-    .on("add", onChangeWithGuard)
-    .on("change", onChangeWithGuard)
-    .on("unlink", onChangeWithGuard)
-    .on("error", () => {
-      notifySubscribers(relativePath, cache ? Object.keys(cache.changes) : []);
-    });
-
-  watchers[relativePath] = watcher;
-
-  async function onChangeWithGuard(rawPath: string) {
-    try {
-      await onChange(rawPath);
-    } catch (error) {
-      console.error(error);
-    }
-  }
-
-  async function onChange(rawPath: string) {
-    const path = normalize(rawPath);
-    const filename = path.replace(
-      new RegExp("^" + regexEscape(fpath) + "/?"),
-      "",
-    );
-    if (args["meta-touch"]) {
-      const guid = path.match(/(.*)\.user.js$/)?.[1];
-      if (guid) {
-        await Deno.utime(`${guid}.meta.json`, new Date(), new Date());
-      }
-    }
-    if (!cache) {
-      cache = watcherCache[relativePath] = {
-        changes: [],
-        timeout: null,
-        current_cursor: 1,
-      };
-    }
-    const changes = (cache.changes[cache.current_cursor] ??= {});
-    changes[filename] ||= true;
-    if (cache.timeout) {
-      clearTimeout(cache.timeout);
-    }
-    // collect all changes until there is no change for one second
-    cache.timeout = setTimeout(() => {
-      sendCachedWatcherChanges(relativePath, cache.current_cursor);
-      const o = watcherCache[relativePath];
-      o.timeout = null;
-      cache.current_cursor++;
-    }, 1000);
-  }
 }
 
 export async function main() {
@@ -548,8 +443,4 @@ async function readAsXml(
     files: ["."].concat(files || []),
     cursor: wc && recursive ? wc.current_cursor : undefined,
   });
-}
-
-function regexEscape(s: string) {
-  return s.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&");
 }
