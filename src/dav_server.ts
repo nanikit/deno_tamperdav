@@ -409,12 +409,7 @@ function assureWatcher(relativePath: string) {
     if (args["meta-touch"]) {
       const guid = path.match(/(.*)\.user.js$/)?.[1];
       if (guid) {
-        const file = await Deno.open(`${guid}.meta.json`);
-        try {
-          await Deno.futime(file.rid, new Date(), new Date());
-        } finally {
-          file.close();
-        }
+        await Deno.utime(`${guid}.meta.json`, new Date(), new Date());
       }
     }
     if (!cache) {
