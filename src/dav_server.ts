@@ -1,20 +1,6 @@
-import { chokidar, Deferred, deferred, dialog, join, normalize, open, resolve } from "./deps.ts";
+import { chokidar, Deferred, deferred, join, normalize, open, resolve } from "./deps.ts";
 
 let args = {} as Record<string, unknown>;
-
-function error(m: unknown) {
-  console.error(m);
-  if (!args["no-dialog"] && !args.headless) {
-    dialog.err(m, "TamperDAV");
-  }
-}
-
-function warn(m: unknown) {
-  console.warn(m);
-  if (!args["no-dialog"] && !args.headless) {
-    dialog.warn(m, "TamperDAV");
-  }
-}
 
 // early parsing for the config option
 const optionConfig = Deno.args.reduce(
@@ -27,7 +13,7 @@ try {
   args = JSON.parse(await Deno.readTextFile(config));
 } catch (err) {
   if (!(err instanceof Deno.errors.NotFound)) {
-    error(`${config}: ${err.message}`);
+    console.error(`${config}: ${err.message}`);
     Deno.exit(1);
   }
 }
@@ -65,8 +51,6 @@ Options:
         --host=[host]              The network address to bind on (default: localhost)
         --port=[port]              The port that the server will listen on (default: 7000)
         --path=[path]              The path, relativePath to server.js, that will serve as storage
-        --no-dialog                Disables the use of a dialog to show messages to the user
-        --headless                 Implies --no-dialog and disables editor opening
 
 All of these options except "--help" can be specified in a JSON formatted file config.json
 in the same directory as server.js. An example is:
@@ -90,7 +74,7 @@ command line parameters.
 }
 
 if (!args.path) {
-  error("path arguments missing");
+  console.error("path arguments missing");
   Deno.exit(1);
 }
 
@@ -98,7 +82,7 @@ const working_dir = join(".", args.path as string);
 await Deno.mkdir(working_dir, { recursive: true });
 
 if (!args["no-auth-warning"] && (!args.username || !args.password)) {
-  warn(
+  console.warn(
     "TamperDAV is running without any form of authentication. It's strongly recommended to configure username and password!",
   );
 }
@@ -194,7 +178,7 @@ const methods = {
   },
   editor: async (request: Request) => {
     let editor = args["open-in-editor"] as string | boolean | undefined;
-    if (!editor || args.headless) {
+    if (!editor) {
       return new Response(null, { status: 501 });
     }
     if (editor === true) {
