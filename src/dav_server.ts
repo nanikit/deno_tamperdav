@@ -1,3 +1,4 @@
+import { arrayToXml } from "./array_to_xml.ts";
 import { chokidar, Deferred, deferred, join, normalize, open, resolve } from "./deps.ts";
 
 let args = {} as Record<string, unknown>;
@@ -243,7 +244,7 @@ async function notifySubscribers(
   }
 
   subscribers[relativePath] = {};
-  const xml = await arrayToXml(relativePath, changedFiles, cursor);
+  const xml = await arrayToXml({ root: working_dir, relativePath, files: changedFiles, cursor });
 
   for (const [id, response] of Object.entries(subscriber)) {
     response.resolve(
@@ -530,7 +531,7 @@ async function readAsXml(
 
   const info = await Deno.stat(path);
   if (!info.isDirectory) {
-    return arrayToXml(relativePath, [""]);
+    return arrayToXml({ root: working_dir, relativePath, files: [""] });
   }
 
   const wc = watcherCache[relativePath];
@@ -541,66 +542,12 @@ async function readAsXml(
     }
   }
 
-  return arrayToXml(
+  return arrayToXml({
+    root: working_dir,
     relativePath,
-    ["."].concat(files || []),
-    wc && recursive ? wc.current_cursor : undefined,
-  );
-}
-
-async function arrayToXml(
-  relativePath: string,
-  files: string[],
-  cursor?: number,
-) {
-  const fpath = join(working_dir, relativePath);
-
-  const xmls = await Promise.all(files.map(buildItemXml));
-  const new_cursor = cursor ? `<td:cursor>${cursor}</td:cursor>` : "";
-  return `<?xml version="1.0"?><d:multistatus xmlns:d="DAV:" xmlns:td="http://dav.tampermonkey.net/ns">${
-    xmls.join(
-      "\n",
-    )
-  }${new_cursor}</d:multistatus>`;
-
-  async function buildItemXml(file: string) {
-    const name = file;
-    const canonicalPath = join(fpath, name);
-
-    let stats, dir;
-    try {
-      stats = await Deno.stat(canonicalPath);
-      dir = stats.isDirectory;
-    } catch (_e) {
-      stats = {
-        mtime: Date.now(),
-        size: -1,
-      };
-      dir = false;
-    }
-
-    const mtime = new Date(stats.mtime || Date.now());
-    const size = stats.size;
-    const lastModified = mtime.toUTCString();
-
-    return [
-      "<d:response>",
-      `<d:href>${join(relativePath, name)}</d:href>`,
-      "<d:propstat>",
-      "<d:prop>",
-      `<d:getlastmodified>${lastModified}</d:getlastmodified>`,
-      dir ? "<d:resourcetype><d:collection/></d:resourcetype>" : "<d:resourcetype />",
-      !dir ? `<d:getcontentlength>${size}</d:getcontentlength>` : "<d:getcontentlength />",
-      "</d:prop>",
-      "<d:status>HTTP/1.1 200 OK</d:status>",
-      "</d:propstat>",
-      "</d:response>",
-    ]
-      .filter(function (e) {
-        return e;
-      })
-      .join("\n");
-  }
+    files: ["."].concat(files || []),
+    cursor: wc && recursive ? wc.current_cursor : undefined,
+  });
 }
 
 function regexEscape(s: string) {
