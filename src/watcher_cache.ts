@@ -11,7 +11,7 @@ export const watcherCache = {} as Record<
 >;
 export const subscribers = {} as Record<string, Record<string, Deferred<Response>>>;
 
-type HasRelativePath = {
+export type HasRelativePath = {
   root: string;
   relativePath: string;
 };
