@@ -18,12 +18,9 @@
       ],
       "args": [
         "--path=dav",
-        "--no-dialog",
-        "--debug",
         "--meta-touch"
       ],
       "attachSimplePort": 9229
-      // "console": "integratedTerminal"
     }
   ]
 }
