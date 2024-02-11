@@ -1,5 +1,5 @@
 import { arrayToXml } from "../array_to_xml.ts";
-import { deferred, join, open, resolve } from "../deps.ts";
+import { join, open, resolve } from "../deps.ts";
 import {
   assureWatcher,
   HasRelativePath,
@@ -172,7 +172,7 @@ export async function subscribe(
 
   const id = crypto.randomUUID();
 
-  const response = deferred<Response>();
+  const response = Promise.withResolvers();
   request.signal.addEventListener("abort", () => {
     response.reject(request.signal.reason);
   });
