@@ -172,7 +172,7 @@ export async function subscribe(
 
   const id = crypto.randomUUID();
 
-  const response = Promise.withResolvers();
+  const response = Promise.withResolvers<Response>();
   request.signal.addEventListener("abort", () => {
     response.reject(request.signal.reason);
   });
@@ -191,7 +191,7 @@ export async function subscribe(
     });
   }
 
-  return response;
+  return response.promise;
 }
 
 export async function editor(

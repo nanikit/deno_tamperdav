@@ -1,5 +1,5 @@
 import { arrayToXml } from "./array_to_xml.ts";
-import { chokidar, Deferred, join, normalize } from "./deps.ts";
+import { chokidar, join, normalize } from "./deps.ts";
 
 export const watcherCache = {} as Record<
   string,
@@ -9,7 +9,10 @@ export const watcherCache = {} as Record<
     current_cursor: number;
   }
 >;
-export const subscribers = {} as Record<string, Record<string, Deferred<Response>>>;
+export const subscribers = {} as Record<
+  string,
+  Record<string, ReturnType<typeof Promise.withResolvers<Response>>>
+>;
 
 export type HasRelativePath = {
   root: string;
