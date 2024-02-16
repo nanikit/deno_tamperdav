@@ -30,7 +30,7 @@ jobs:
       run: deno fmt --check
 
     - name: Run linter
-      run: deno lint --unstable
+      run: deno lint
 
     - name: Check
-      run: deno check --unstable mod.ts
+      run: deno check mod.ts
