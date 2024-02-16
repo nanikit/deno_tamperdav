@@ -19,10 +19,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v2
+      uses: actions/checkout@main
 
     - name: Setup deno
-      uses: denoland/setup-deno@v1
+      uses: denoland/setup-deno@main
       with:
         deno-version: vx.x.x
 
