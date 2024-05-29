@@ -8,11 +8,10 @@
       "request": "launch",
       "name": "Launch Program",
       "type": "node",
-      "program": "${workspaceFolder}/mod.ts",
+      "program": "${file}",
       "runtimeExecutable": "deno",
       "runtimeArgs": [
         "run",
-        "--unstable",
         "--inspect-wait",
         "--allow-all"
       ],
@@ -23,7 +22,6 @@
         "--meta-touch"
       ],
       "attachSimplePort": 9229
-      // "console": "integratedTerminal"
     }
   ]
 }
