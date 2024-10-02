@@ -1,3 +1,4 @@
+import { delay } from "jsr:@std/async/delay";
 import {
   del,
   editor,
@@ -12,6 +13,7 @@ import {
 
 type DavServerOptions = {
   debug?: boolean;
+  verbose?: boolean;
   username?: string;
   password?: string;
   editor?: string | boolean;
@@ -22,19 +24,15 @@ export class DavServer {
   constructor(private readonly root: string, private readonly args: DavServerOptions) {}
 
   logAndHandleRequest = async (request: Request): Promise<Response> => {
-    if (this.args.debug) {
-      logRequest(request);
-    }
-
     let response: Response;
     try {
-      response = await this.#handleRequest(request);
+      const responsePromise = this.#handleRequest(request);
+
+      this.#logResponsePairIfPossible(request, responsePromise);
+
+      response = await responsePromise;
     } catch (error) {
       response = new Response(`${error}`, { status: 500 });
-    }
-
-    if (this.args.debug) {
-      await logResponse(request, response);
     }
 
     return response;
@@ -105,11 +103,33 @@ export class DavServer {
     const [user, pass] = auth?.match("Basic (.*)")?.[1]?.split(":") ?? [];
     return user == username && pass == password;
   };
+
+  async #logResponsePairIfPossible(request: Request, responsePromise: Promise<Response>) {
+    if (!this.args.debug) {
+      return;
+    }
+
+    const maybeResponse = await Promise.race([responsePromise, delay(100)]);
+
+    const requestLog = getRequestLog(request, { verbose: this.args.verbose });
+    if (maybeResponse instanceof Response) {
+      const responseLog = await getResponseLog(maybeResponse, { verbose: this.args.verbose });
+      console.log(`${requestLog}${this.args.verbose ? "\n" : " -> "}${responseLog}`);
+    } else {
+      console.log(requestLog);
+      const response = await responsePromise;
+      const responseLog = await getResponseLog(response, { verbose: this.args.verbose });
+      console.log(`${getRequestLog(request, {})} -> ${responseLog}`);
+    }
+  }
 }
 
-function logRequest(request: Request) {
-  console.log("###");
-  console.log(`${request.method} ${request.url}`);
+function getRequestLog(request: Request, { verbose }: { verbose?: boolean }) {
+  if (!verbose) {
+    return `${request.method} ${request.url}`;
+  }
+
+  const log = [`${request.method} ${request.url}`];
   request.headers.forEach((v, k) => {
     if (
       k.match(
@@ -118,17 +138,24 @@ function logRequest(request: Request) {
     ) {
       return;
     }
-    console.log(`${k}: ${v}`);
+    log.push(`${k}: ${v}`);
   });
+  return log.join("\n");
 }
 
-async function logResponse(request: Request, response: Response) {
-  console.log("###");
-  console.log(`${request.method} ${request.url} -> ${response.status}`);
+async function getResponseLog(response: Response, { verbose }: { verbose?: boolean }) {
+  const log = [`${response.status} ${response.statusText}`];
+  if (!verbose) {
+    return log.join("\n");
+  }
+
   response.headers.forEach((v, k) => {
-    console.log(`${k}: ${v}`);
+    log.push(`${k}: ${v}`);
   });
-  console.log("");
+  log.push("");
+
   const text = await response.clone().text();
-  console.log(text);
+  log.push(text);
+
+  return log.join("\n");
 }

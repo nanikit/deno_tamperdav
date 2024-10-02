@@ -60,9 +60,9 @@ export async function main() {
 async function readConfigFile(config: string): Promise<Record<string, unknown>> {
   try {
     return JSON.parse(await Deno.readTextFile(config));
-  } catch (err) {
-    if (!(err instanceof Deno.errors.NotFound)) {
-      console.error(`${config}: ${err.message}`);
+  } catch (error) {
+    if (!(error instanceof Deno.errors.NotFound)) {
+      console.error(`${config}: ${error}`);
       Deno.exit(1);
     }
   }
