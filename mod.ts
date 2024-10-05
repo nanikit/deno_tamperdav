@@ -8,19 +8,19 @@ if (import.meta.main) {
 
 export async function main() {
   // early parsing for the config option
-  const args = parseArgs(Deno.args, {
+  const cliArgs = parseArgs(Deno.args, {
     boolean: ["help", "no-auth-warning", "meta-touch", "debug"],
     string: ["config", "path", "open-in-editor", "host", "port", "username", "password"],
   });
 
-  if (args.help) {
+  if (cliArgs.help) {
     printHelp();
     return;
   }
 
-  const config = args.config || "config.json";
+  const config = cliArgs.config || "config.json";
   const fileConfig = await readConfigFile(config);
-  Object.assign(args, fileConfig);
+  const args = Object.assign({}, fileConfig, cliArgs);
 
   args.username ??= Deno.env.get("TD_USERNAME");
   args.password ??= Deno.env.get("TD_PASSWORD");
@@ -49,7 +49,7 @@ export async function main() {
         return new Response(`${error}`, { status: 500 });
       },
     },
-    new DavServer(root, { ...args, metaTouch: args["meta-touch"] }).logAndHandleRequest,
+    new DavServer(root, args).logAndHandleRequest,
   );
 
   console.info(`server is listening on ${port}`);

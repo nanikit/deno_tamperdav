@@ -18,8 +18,8 @@ type DavServerOptions = {
   verbose?: boolean;
   username?: string;
   password?: string;
-  editor?: string | boolean;
-  metaTouch?: boolean;
+  "open-in-editor"?: string;
+  "meta-touch"?: boolean;
 };
 
 export class DavServer implements Disposable {
@@ -72,7 +72,7 @@ export class DavServer implements Disposable {
     const method = request.method.toUpperCase();
     switch (method) {
       case "OPTIONS":
-        return options(!!this.args.editor);
+        return options(!!this.args["open-in-editor"]);
       case "PROPFIND":
         return await propFind(request, this.#root);
       case "GET":
@@ -89,12 +89,12 @@ export class DavServer implements Disposable {
         return await subscribe(request, {
           root: this.#root,
           subscriber: this.#subscriber,
-          metaTouch: !!this.args.metaTouch,
+          metaTouch: !!this.args["meta-touch"],
         });
       case "EDITOR":
         return await editor(request, {
           root: this.#root,
-          editor: this.args.editor,
+          editor: this.args["open-in-editor"],
         });
       default:
         return new Response(`Unknown method: ${method}`, {
