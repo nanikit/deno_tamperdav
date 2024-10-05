@@ -1,11 +1,12 @@
-import { basename, dirname, join, parse } from "./deps.ts";
+import { parseArgs } from "jsr:@std/cli/parse-args";
+import { basename, dirname, join } from "jsr:@std/path";
 
 if (import.meta.main) {
   main();
 }
 
 async function main() {
-  const { delete: $delete, help, move, _: rest } = parse(Deno.args, {
+  const { delete: $delete, help, move, _: rest } = parseArgs(Deno.args, {
     alias: { "d": "delete", "h": "help", "m": "move" },
     string: ["move"],
     boolean: ["delete", "help"],

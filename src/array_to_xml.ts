@@ -1,59 +1,44 @@
-import { join } from "./deps.ts";
+import { zip } from "jsr:@std/collections/zip";
+import { toFileUrl } from "jsr:@std/path/to-file-url";
 
 export async function arrayToXml(
-  { root, relativePath, files, cursor }: {
+  { root, files, cursor }: {
     root: string;
-    relativePath: string;
     files: string[];
     cursor?: number;
   },
 ) {
-  const fpath = join(root, relativePath);
+  const stats = await Promise.all(files.map((file) => Deno.stat(file).catch(() => null)));
+  const rootUrl = `${toFileUrl(root)}`;
+  const relatives = files.map((file) => {
+    return `${toFileUrl(file)}`.slice(rootUrl.length) || "/";
+  });
+  const xmls = zip(relatives, stats).map(([relative, stat]) => buildItemXml(relative, stat));
 
-  const xmls = await Promise.all(files.map(buildItemXml));
   const new_cursor = cursor ? `<td:cursor>${cursor}</td:cursor>` : "";
   return `<?xml version="1.0"?><d:multistatus xmlns:d="DAV:" xmlns:td="http://dav.tampermonkey.net/ns">${
-    xmls.join(
-      "\n",
-    )
+    xmls.join("\n")
   }${new_cursor}</d:multistatus>`;
+}
 
-  async function buildItemXml(file: string) {
-    const name = file;
-    const canonicalPath = join(fpath, name);
+function buildItemXml(subPath: string, stat: Deno.FileInfo | null) {
+  const mtime = new Date(stat?.mtime || Date.now());
+  const size = stat?.size ?? -1;
+  const lastModified = mtime.toISOString();
+  const isDirectory = stat?.isDirectory ?? false;
 
-    let stats, dir;
-    try {
-      stats = await Deno.stat(canonicalPath);
-      dir = stats.isDirectory;
-    } catch (_e) {
-      stats = {
-        mtime: Date.now(),
-        size: -1,
-      };
-      dir = false;
-    }
-
-    const mtime = new Date(stats.mtime || Date.now());
-    const size = stats.size;
-    const lastModified = mtime.toUTCString();
-
-    return [
-      "<d:response>",
-      `<d:href>${join(relativePath, name)}</d:href>`,
-      "<d:propstat>",
-      "<d:prop>",
-      `<d:getlastmodified>${lastModified}</d:getlastmodified>`,
-      dir ? "<d:resourcetype><d:collection/></d:resourcetype>" : "<d:resourcetype />",
-      !dir ? `<d:getcontentlength>${size}</d:getcontentlength>` : "<d:getcontentlength />",
-      "</d:prop>",
-      "<d:status>HTTP/1.1 200 OK</d:status>",
-      "</d:propstat>",
-      "</d:response>",
-    ]
-      .filter(function (e) {
-        return e;
-      })
-      .join("\n");
-  }
+  return [
+    "<d:response>",
+    `<d:href>${subPath}</d:href>`,
+    "<d:propstat>",
+    "<d:prop>",
+    `<d:getlastmodified>${lastModified}</d:getlastmodified>`,
+    isDirectory ? "<d:resourcetype><d:collection/></d:resourcetype>" : "<d:resourcetype />",
+    !isDirectory ? `<d:getcontentlength>${size}</d:getcontentlength>` : "<d:getcontentlength />",
+    "</d:prop>",
+    "<d:status>HTTP/1.1 200 OK</d:status>",
+    "</d:propstat>",
+    "</d:response>",
+  ]
+    .join("\n");
 }

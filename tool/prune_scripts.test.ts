@@ -1,4 +1,6 @@
-import { assertEquals, basename, copy, join, resolve, toArray } from "./deps.ts";
+import { assertEquals } from "jsr:@std/assert";
+import { copy } from "jsr:@std/fs";
+import { basename, join, resolve } from "jsr:@std/path";
 import { pruneScripts } from "./prune_scripts.ts";
 
 Deno.test("Given empty directory", async (test) => {
@@ -127,7 +129,8 @@ async function assertDirectoryEquals(actual: string, expected: string) {
 }
 
 async function snapshotDirectory(actual: string) {
-  const entries = await toArray(Deno.readDir(actual));
+  const entries = await Array.fromAsync(Deno.readDir(actual));
+
   return await Promise.all(entries.flatMap(async (item) => {
     if (!item.isFile) {
       return [];

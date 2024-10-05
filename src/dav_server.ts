@@ -10,6 +10,8 @@ import {
   put,
   subscribe,
 } from "./dav_server/handlers.ts";
+import { resolve } from "./deps.ts";
+import { FsSubscriber } from "./subscription_handler.ts";
 
 type DavServerOptions = {
   debug?: boolean;
@@ -21,7 +23,14 @@ type DavServerOptions = {
 };
 
 export class DavServer {
-  constructor(private readonly root: string, private readonly args: DavServerOptions) {}
+  #root: string;
+  #subscriber: FsSubscriber;
+  #lastRequestId = 0;
+
+  constructor(root: string, private readonly args: DavServerOptions) {
+    this.#root = resolve(root);
+    this.#subscriber = new FsSubscriber(this.#root);
+  }
 
   logAndHandleRequest = async (request: Request): Promise<Response> => {
     let response: Response;
@@ -61,25 +70,26 @@ export class DavServer {
       case "OPTIONS":
         return options(!!this.args.editor);
       case "PROPFIND":
-        return await propFind(request, this.root);
+        return await propFind(request, this.#root);
       case "GET":
-        return await get(request, this.root);
+        return await get(request, { root: this.#root });
       case "HEAD":
-        return await head(request, this.root);
+        return await head(request, this.#root);
       case "PUT":
-        return await put(request, this.root);
+        return await put(request, this.#root);
       case "MKCOL":
-        return await makeCollection(request, this.root);
+        return await makeCollection(request, this.#root);
       case "DELETE":
-        return await del(request, this.root);
+        return await del(request, this.#root);
       case "SUBSCRIBE":
         return await subscribe(request, {
-          root: this.root,
+          root: this.#root,
+          subscriber: this.#subscriber,
           metaTouch: !!this.args.metaTouch,
         });
       case "EDITOR":
         return await editor(request, {
-          root: this.root,
+          root: this.#root,
           editor: this.args.editor,
         });
       default:
@@ -114,12 +124,13 @@ export class DavServer {
     const requestLog = getRequestLog(request, { verbose: this.args.verbose });
     if (maybeResponse instanceof Response) {
       const responseLog = await getResponseLog(maybeResponse, { verbose: this.args.verbose });
-      console.log(`${requestLog}${this.args.verbose ? "\n" : " -> "}${responseLog}`);
+      console.debug(`${requestLog}${this.args.verbose ? "\n" : " -> "}${responseLog}`);
     } else {
-      console.log(requestLog);
+      const requestId = this.#lastRequestId++;
+      console.debug(`${requestLog} -> (pending: ${requestId})`);
       const response = await responsePromise;
       const responseLog = await getResponseLog(response, { verbose: this.args.verbose });
-      console.log(`${getRequestLog(request, {})} -> ${responseLog}`);
+      console.debug(`${getRequestLog(request, {})} (pending: ${requestId}) -> ${responseLog}`);
     }
   }
 }
