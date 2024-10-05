@@ -171,17 +171,25 @@ export async function subscribe(
   if (subscribeImmediateCount > 0) {
     subscription.timeoutSeconds = 0;
     subscribeImmediateCount--;
-  } else if (lastDiffTime < 11000) {
-    subscription.timeoutSeconds = Math.floor(Math.max(0, Math.min(10 - lastDiffTime / 1000, 10)));
-  } else {
+  } else if (lastDiffTime >= 11000) {
     return await propFind(request, root);
   }
 
   try {
-    const relatives = [...await subscriber.subscribe(subscription)];
-    if (relatives.length === 0) {
-      return new Response(null, { status: 204 });
-    }
+    let relatives: string[] = [];
+    do {
+      if (subscription.timeoutSeconds > 0) {
+        const lastDiffTime = now.getTime() - (lastSubscribeRequestTime?.getTime() ?? 0);
+        subscription.timeoutSeconds = Math.floor(
+          Math.max(0, Math.min(10 - lastDiffTime / 1000, 10)),
+        );
+      }
+      relatives = [...await subscriber.subscribe(subscription)];
+
+      if (relatives.length === 0) {
+        return new Response(null, { status: 204 });
+      }
+    } while (relatives.every((x) => x.endsWith(".meta.json")));
 
     if (metaTouch) {
       const metas = await Promise.all(relatives.map(touchMeta));
@@ -191,7 +199,7 @@ export async function subscribe(
     const absolutes = relatives.map((x) => resolve(root, x));
     const xml = await arrayToXml({ root, files: absolutes });
 
-    subscribeImmediateCount = 20;
+    subscribeImmediateCount = TAMPERMONKEY_VOID_SUBSCRIBE_COUNT;
     return new Response(xml, {
       status: 207,
       headers: { "Content-Type": "application/xml; charset=utf-8" },
