@@ -22,7 +22,7 @@ type DavServerOptions = {
   metaTouch?: boolean;
 };
 
-export class DavServer {
+export class DavServer implements Disposable {
   #root: string;
   #subscriber: FsSubscriber;
   #lastRequestId = 0;
@@ -46,6 +46,10 @@ export class DavServer {
 
     return response;
   };
+
+  [Symbol.dispose](): void {
+    this.#subscriber[Symbol.dispose]();
+  }
 
   #handleRequest = async (request: Request): Promise<Response> => {
     if (!this.#isAuthorized(request)) {

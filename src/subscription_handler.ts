@@ -72,6 +72,7 @@ export class FsSubscriber implements Disposable {
   [Symbol.dispose](): void {
     this.#changes.clear();
     this.#requests.clear();
+    this.#notify.clear();
 
     const error = new Error("aborted");
     for (const resolver of this.#resolvers.values()) {
@@ -120,7 +121,7 @@ export class FsSubscriber implements Disposable {
       const paths = new Set<string>();
 
       for (const path of this.#changes) {
-        const isSubPath = path.startsWith(`${request.path}/`);
+        const isSubPath = path.startsWith(`${request.path}/`) || request.path === ".";
         const isNotRelated = path !== request.path && !isSubPath;
         if (isNotRelated) {
           continue;
