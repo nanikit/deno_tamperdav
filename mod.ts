@@ -1,3 +1,4 @@
+import { parseArgs } from "jsr:@std/cli/parse-args";
 import { DavServer } from "./src/dav_server.ts";
 import { join } from "./src/deps.ts";
 
@@ -7,25 +8,22 @@ if (import.meta.main) {
 
 export async function main() {
   // early parsing for the config option
-  const optionConfig = Deno.args.reduce(
-    (a, c) => c.split("--config=")[1] || a,
-    "",
-  );
-  const config = optionConfig || "config.json";
-  const args = await readConfigFile(config);
+  const args = parseArgs(Deno.args, {
+    boolean: ["help", "no-auth-warning", "meta-touch", "debug"],
+    string: ["config", "path", "open-in-editor", "host", "port", "username", "password"],
+  });
 
-  for (const k of ["username", "password"]) {
-    args[k] = args[k] || Deno.env.get("TD_" + k.toUpperCase());
-  }
-
-  for (const val of Deno.args) {
-    const s = val.replace(/^[-]{1,2}/, "").split("=");
-    args[s[0]] = s[1] || true;
-  }
-
-  if (Deno.args.includes("--help")) {
+  if (args.help) {
     printHelp();
+    return;
   }
+
+  const config = args.config || "config.json";
+  const fileConfig = await readConfigFile(config);
+  Object.assign(args, fileConfig);
+
+  args.username ??= Deno.env.get("TD_USERNAME");
+  args.password ??= Deno.env.get("TD_PASSWORD");
 
   if (!args.path) {
     console.error("path arguments missing");
@@ -48,12 +46,13 @@ export async function main() {
       port: port,
       onError: (error) => {
         console.error(error);
-        return new Response(`${error}`);
+        return new Response(`${error}`, { status: 500 });
       },
     },
-    new DavServer(root, args).logAndHandleRequest,
+    new DavServer(root, { ...args, metaTouch: args["meta-touch"] }).logAndHandleRequest,
   );
-  console.log(`server is listening on ${port}`);
+
+  console.info(`server is listening on ${port}`);
   return server;
 }
 
@@ -71,7 +70,7 @@ async function readConfigFile(config: string): Promise<Record<string, unknown>> 
 
 function printHelp() {
   const { os } = Deno.build;
-  console.log(
+  console.info(
     `Usage: ${os === "windows" ? "TamperDAV.bat" : "./tamperdav.sh"} [options]
 Starts a WebDAV server for Tampermonkey to sync scripts with.
 
@@ -112,5 +111,4 @@ TD_PASSWORD respectively. These have priority over over the config file, but not
 command line parameters.
 `,
   );
-  Deno.exit(0);
 }
